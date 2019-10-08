@@ -130,10 +130,10 @@ class _Functor_CaseConversion(_Functor):
 
         splits = [m.span()[0] for m in re.finditer('[A-Z]+[a-z0-9]*', ascii_data)]+[len(ascii_data)]
         splits = [0] + splits if splits[0] != 0 else splits
-        
+
         need_prefix = lambda splits, split: split > 0 and data[splits[split]-1].isalnum()
         do_prefix = lambda word, splits, split: (delim if need_prefix(splits,split) else "") + word
-        
+
         return "".join([do_prefix(data[splits[split]:splits[split+1]].lower(),splits,split) for split in range(len(splits)-1)])
 
     # Snake casing  converts AboveAverage to above-average
@@ -346,6 +346,21 @@ class _Functor_Reverse(_Functor):
     def convert(self, data):
         return [{'label': data[::-1], 'target': data[::-1], 'desc': 'Reversed string'}]
 
+class _Functor_Puntos(_Functor):
+    def __init__(self):
+        super().__init__("puntos", "Puntos",
+                         "Puntos is translator strings")
+        self.ru = 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'
+        self.ru_to_en = 'f,dult`;pbqrkvyjghcnea[wxio]sm\'.zF<DULT~:PBQRKVYJGHCNEA{WXIO}SM">Z'
+
+    def convert(self, data):
+        if any(char in self.ru for char in data):
+            trans = str.maketrans(self.ru, self.ru_to_en)
+        else:
+            trans = str.maketrans(self.ru_to_en, self.ru)
+
+        return (data.translate(trans), )
+
 class String(kp.Plugin):
     """
     A multi-purpose plugin for string conversion and generation
@@ -391,7 +406,8 @@ class String(kp.Plugin):
             _Functor_ZLib("adler32"),
             _Functor_ZLib("crc32"),
             _Functor_Base64(),
-            _Functor_Reverse()]
+            _Functor_Reverse(),
+            _Functor_Puntos()]
 
         for algo in hashlib.algorithms_available:
             # some algorithms are declared twice in the list, like 'MD4' and
