@@ -346,6 +346,22 @@ class _Functor_Reverse(_Functor):
     def convert(self, data):
         return [{'label': data[::-1], 'target': data[::-1], 'desc': 'Reversed string'}]
 
+class _Functor_Unescape(_Functor):
+    def __init__(self):
+        super().__init__("unescape", "Un-escape",
+                         "Un-escape a backslash-escaped string")
+
+    def convert(self, data):
+        # another method:
+        # escaped = data.encode('utf-8').decode('unicode_escape')
+
+        try:
+            escaped = codecs.decode(codecs.encode(data, 'latin-1', 'backslashreplace'), 'unicode-escape')
+        except UnicodeDecodeError as e:
+            return []
+
+        return [{'label': escaped, 'target': escaped, 'desc': 'Un-escaped string'}]
+
 class String(kp.Plugin):
     """
     A multi-purpose plugin for string conversion and generation
@@ -391,7 +407,8 @@ class String(kp.Plugin):
             _Functor_ZLib("adler32"),
             _Functor_ZLib("crc32"),
             _Functor_Base64(),
-            _Functor_Reverse()]
+            _Functor_Reverse(),
+            _Functor_Unescape()]
 
         for algo in hashlib.algorithms_available:
             # some algorithms are declared twice in the list, like 'MD4' and
