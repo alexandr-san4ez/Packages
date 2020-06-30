@@ -74,7 +74,7 @@ def _safe_round(x, ndigits=None):
 
 
 def _safe_custom_rand(top):
-    return int(random() * Number(top).safe_int())
+    return int(random.random() * Number(top).safe_int())
 
 def _safe_custom_randf(a, b):
     try:
@@ -121,7 +121,7 @@ class CalcVarHandler:
     REGEX_CALC_VAR_EXP = r'^\s*(?P<var1>[a-zA-Z][a-zA-Z0-9]*)?\s*(?P<eq1>=)(?P<expr1>[^=].*)$'
     REGEX_CALC_EXP_VAR = r'^(?P<expr2>.*[^=])(?P<eq2>=)\s*(?P<var2>[a-zA-Z][a-zA-Z0-9]*)?\s*$'
     SAVE_VAR_PARSER    = f"{REGEX_CALC_VAR_EXP}|{REGEX_CALC_EXP_VAR}"
-    VAR_CACHE_FILE    = "variables.json"
+    VAR_CACHE_FILE     = "variables.json"
     calc_vars = {}
     var_to_save = None
 
@@ -179,9 +179,10 @@ class CalcVarHandler:
 
     def expression_to_evaluate(self, user_input, evaluate):
         self.var_to_save = self.plugin.ANSWER_VARIABLE
+        suffix = False
         save_var_match = self.save_var_parser.match(user_input)
         if not save_var_match:
-            return user_input if evaluate else None
+            return (user_input if evaluate else None, suffix)
         elif save_var_match["var1"] or save_var_match["eq1"]:
             self.var_to_save = save_var_match["var1"]
             if save_var_match["eq1"]:
@@ -191,9 +192,10 @@ class CalcVarHandler:
             self.var_to_save = save_var_match["var2"]
             if save_var_match["eq2"]:
                 evaluate = True
+                suffix = True
             expr = save_var_match["expr2"]
 
-        return expr
+        return (expr, suffix)
 
     def update_calc_vars(self, own_names):
         own_names.update(self.calc_vars)
@@ -230,7 +232,7 @@ class Calc(kp.Plugin):
     DEFAULT_CURRENCY_PLACES = 2
 
     ANSWER_VARIABLE = 'ans'
-    
+
     MATH_OPERATORS = simpleeval.DEFAULT_OPERATORS
 
     MATH_CONSTANTS = {
@@ -434,7 +436,7 @@ class Calc(kp.Plugin):
             return
 
         eval_requested = False
-        expression = self.var_handler.expression_to_evaluate(user_input, self.always_evaluate)
+        expression, suffix = self.var_handler.expression_to_evaluate(user_input, self.always_evaluate)
         if expression:
             # always evaluate if an assignment is made or = (DEFAULT_KEYWORD) is used
             eval_requested = True
@@ -463,8 +465,12 @@ class Calc(kp.Plugin):
                     args_hint=kp.ItemArgsHint.FORBIDDEN,
                     hit_hint=kp.ItemHitHint.IGNORE))
         except Exception as exc:
-            if not eval_requested or self.var_handler.var_to_save == self.ANSWER_VARIABLE:
-                return # stay quiet if evaluation hasn't been explicitly requested
+            if suffix or not eval_requested or self.var_handler.var_to_save == self.ANSWER_VARIABLE:
+                # stay quiet if evaluation hasn't been explicitly requested or
+                # if suffix format to avoid getting exceptions of things like:
+                # https://www.youtube.com/watch?v=abcdef
+                return
+
             suggestions.append(self.create_error_item(
                 label=expression,
                 short_desc="Error: " + str(exc)))
